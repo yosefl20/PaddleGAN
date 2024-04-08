@@ -214,6 +214,19 @@ class Pixel2Style2PixelPredictor(BasePredictor):
         self.model_type = 'default' if model_type is None else model_type
 
     def run(self, image):
+        (src_img, dst_img, dst_npy) = self.runWithoutSave(image)
+
+        os.makedirs(self.output_path, exist_ok=True)
+        save_src_path = os.path.join(self.output_path, 'src.png')
+        cv2.imwrite(save_src_path, cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR))
+        save_dst_path = os.path.join(self.output_path, 'dst.png')
+        cv2.imwrite(save_dst_path, cv2.cvtColor(dst_img, cv2.COLOR_RGB2BGR))
+        save_npy_path = os.path.join(self.output_path, 'dst.npy')
+        np.save(save_npy_path, dst_npy)
+
+        return src_img, dst_img, dst_npy
+
+    def runWithoutSave(self, image):
         src_img = run_alignment(image)
         src_img = np.asarray(src_img)
         transformed_image = model_cfgs[self.model_type]['transform'](src_img)
@@ -224,13 +237,5 @@ class Pixel2Style2PixelPredictor(BasePredictor):
         dst_img = (dst_img * 0.5 + 0.5)[0].numpy() * 255
         dst_img = dst_img.transpose((1, 2, 0))
         dst_npy = latents[0].numpy()
-
-        os.makedirs(self.output_path, exist_ok=True)
-        save_src_path = os.path.join(self.output_path, 'src.png')
-        cv2.imwrite(save_src_path, cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR))
-        save_dst_path = os.path.join(self.output_path, 'dst.png')
-        cv2.imwrite(save_dst_path, cv2.cvtColor(dst_img, cv2.COLOR_RGB2BGR))
-        save_npy_path = os.path.join(self.output_path, 'dst.npy')
-        np.save(save_npy_path, dst_npy)
 
         return src_img, dst_img, dst_npy

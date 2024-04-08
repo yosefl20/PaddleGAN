@@ -46,8 +46,20 @@ class StyleGANv2EditingPredictor(StyleGANv2Predictor):
     @paddle.no_grad()
     def run(self, latent, direction, offset):
 
-        latent = paddle.to_tensor(
-            np.load(latent)).unsqueeze(0).astype('float32')
+        (src_img, dst_img, dst_latent) = self.runWithoutSave(latent, direction, offset)
+        os.makedirs(self.output_path, exist_ok=True)
+        save_src_path = os.path.join(self.output_path, 'src.editing.png')
+        cv2.imwrite(save_src_path, cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR))
+        save_dst_path = os.path.join(self.output_path, 'dst.editing.png')
+        cv2.imwrite(save_dst_path, cv2.cvtColor(dst_img, cv2.COLOR_RGB2BGR))
+        save_npy_path = os.path.join(self.output_path, 'dst.editing.npy')
+        np.save(save_npy_path, dst_latent)
+
+        return src_img, dst_img, dst_latent
+
+    @paddle.no_grad()
+    def runv2(self, latent, direction, offset, destFileName):
+
         direction = self.directions[direction].unsqueeze(0).astype('float32')
 
         latent_n = paddle.concat([latent, latent + offset * direction], 0)
@@ -62,11 +74,31 @@ class StyleGANv2EditingPredictor(StyleGANv2Predictor):
         dst_latent = (latent + offset * direction)[0].numpy().astype('float32')
 
         os.makedirs(self.output_path, exist_ok=True)
-        save_src_path = os.path.join(self.output_path, 'src.editing.png')
+        save_src_path = os.path.join(self.output_path, f'{destFileName}_src.png')
         cv2.imwrite(save_src_path, cv2.cvtColor(src_img, cv2.COLOR_RGB2BGR))
-        save_dst_path = os.path.join(self.output_path, 'dst.editing.png')
+        save_dst_path = os.path.join(self.output_path, f'{destFileName}_dst.png')
         cv2.imwrite(save_dst_path, cv2.cvtColor(dst_img, cv2.COLOR_RGB2BGR))
-        save_npy_path = os.path.join(self.output_path, 'dst.editing.npy')
+        save_npy_path = os.path.join(self.output_path, f'{destFileName}_dst.npy')
         np.save(save_npy_path, dst_latent)
+
+        return save_src_path, save_dst_path, save_npy_path
+
+    @paddle.no_grad()
+    def runWithoutSave(self, latent, direction, offset):
+
+        latent = paddle.to_tensor(
+            np.load(latent)).unsqueeze(0).astype('float32')
+        direction = self.directions[direction].unsqueeze(0).astype('float32')
+
+        latent_n = paddle.concat([latent, latent + offset * direction], 0)
+        generator = self.generator
+        img_gen, _ = generator([latent_n],
+                               input_is_latent=True,
+                               randomize_noise=False)
+        imgs = make_image(img_gen)
+        src_img = imgs[0]
+        dst_img = imgs[1]
+
+        dst_latent = (latent + offset * direction)[0].numpy().astype('float32')
 
         return src_img, dst_img, dst_latent
